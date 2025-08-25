@@ -44,6 +44,7 @@ const corsOptions = {
 };
 
 app.use(cors(corsOptions));
+// Preflight for all paths (Express 4)
 app.options('*', cors(corsOptions));
 app.use(express.json());
 app.use(cookieParser());
