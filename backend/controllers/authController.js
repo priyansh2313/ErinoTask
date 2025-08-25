@@ -2,7 +2,13 @@ const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const User = require('../models/User');
 
-const cookieOptions = { httpOnly: true, sameSite: 'lax', secure: false, path: '/' };
+const isProd = process.env.NODE_ENV === 'production';
+const cookieOptions = {
+  httpOnly: true,
+  sameSite: isProd ? 'none' : 'lax',
+  secure: isProd,
+  path: '/',
+};
 
 exports.register = async (req, res) => {
   try {

@@ -8,9 +8,43 @@ const authRoutes = require('./routes/auth');
 const leadRoutes = require('./routes/leads');
 
 const app = express();
+// Behind Render proxy, required for secure cookies
+app.set('trust proxy', 1);
 
-const FRONTEND_URL = process.env.FRONTEND_URL;
-app.use(cors({ origin: FRONTEND_URL || true, credentials: true }));
+// Allowlist can be provided via ALLOWED_ORIGINS (comma-separated) or single FRONTEND_URL
+const rawAllowed = process.env.ALLOWED_ORIGINS
+  ? process.env.ALLOWED_ORIGINS.split(',').map(s => s.trim()).filter(Boolean)
+  : [];
+const FRONTEND_URL = process.env.FRONTEND_URL; // optional single origin
+
+// Normalize helper to strip any trailing slash
+const normalizeOrigin = (s) => (typeof s === 'string' ? s.replace(/\/$/, '') : s);
+
+// Build allowlist and normalize
+const envOrigins = [...rawAllowed, FRONTEND_URL]
+  .filter(Boolean)
+  .map(normalizeOrigin);
+
+// In production, only allow the configured origins. In dev, also allow localhost for convenience.
+const allowedOrigins = process.env.NODE_ENV === 'production'
+  ? envOrigins
+  : [...envOrigins, 'http://localhost:3000'];
+
+const corsOptions = {
+  origin(origin, callback) {
+    // allow same-origin or non-browser requests (no origin), and explicit allowlist
+    if (!origin) return callback(null, true);
+    const normalized = normalizeOrigin(origin);
+    if (allowedOrigins.includes(normalized)) return callback(null, true);
+    return callback(new Error(`Not allowed by CORS: ${origin}`));
+  },
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization'],
+};
+
+app.use(cors(corsOptions));
+app.options('*', cors(corsOptions));
 app.use(express.json());
 app.use(cookieParser());
 // Simple logger
